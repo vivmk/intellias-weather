@@ -14,7 +14,7 @@ export interface HourlyData {
  *
  * @returns {string} The formatted date string.
  */
-const getFormattedDateWithHour = () => {
+const getFormattedDateWithHour = (): string => {
   const now = new Date();
 
   const year = now.getFullYear();
@@ -61,7 +61,7 @@ export const getIsMultipleLocations = async (
  * @param {number[]} apiResponse.hourly.weather_code The hourly weather codes in the Open Meteo response.
  * @returns {{code: number, temperature: number}} The current weather code and temperature, or {code: -1, temperature: -1} if the current time is not found.
  */
-const getWeatherCodeForCurrentTime = (apiResponse: {
+export const getWeatherCodeForCurrentTime = (apiResponse: {
   hourly: HourlyData;
 }): {code: number; temperature: number} => {
   try {
@@ -89,7 +89,7 @@ const getWeatherCodeForCurrentTime = (apiResponse: {
  * @param {{time: string[], temperature_2m: number[], weather_code: number[]}} hourlyData The hourly weather data.
  * @returns {{ date: string; avgTemp: string; avgCode: string; }[]} An array of daily averages, where each item is an object with date, avgTemp, and avgCode.
  */
-function getDailyAverages(hourlyData: {
+export function getDailyAverages(hourlyData: {
   time: string[];
   temperature_2m: number[];
   weather_code: number[];
@@ -114,10 +114,12 @@ function getDailyAverages(hourlyData: {
 
   const avgDataArray = Object.keys(dataByDate).map(date => {
     const {totalTemp, totalCode, count} = dataByDate[date];
+    const derivedTemp = totalTemp / count;
+    const derivedCode = totalCode / count;
     return {
       date,
-      avgTemp: (totalTemp / count).toFixed(2),
-      avgCode: (totalCode / count).toFixed(0),
+      avgTemp: Number.isNaN(derivedTemp) ? '' : derivedTemp.toFixed(2),
+      avgCode: Number.isNaN(derivedCode) ? '' : derivedCode.toFixed(0),
     };
   });
 
@@ -131,16 +133,17 @@ function getDailyAverages(hourlyData: {
  * @param {(weeklyData: DailyAverage[]) => void} setWeeklyData A function to set the weekly data.
  * @returns {Promise<{temperature: number; weatherImage: string}>} A promise that resolves with an object containing the current temperature and a URL to an image representing the current weather, or rejects with an error if the fetch fails.
  */
-const fetchWeather = async (
+export const fetchWeather = async (
   latitude: number,
   longitude: number,
   setWeeklyData: (weeklyData: DailyAverage[]) => void,
-): Promise<{temperature: number; weatherImage: string}> => {
+): Promise<{temperature: number; weatherImage: string; unit: string}> => {
   try {
     const weatherResponse = await fetch(
       `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m&hourly=temperature_2m,weather_code`,
     );
     const weatherData: {
+      current_units: {temperature_2m: string};
       current: {temperature_2m: number};
       hourly: HourlyData;
     } = await weatherResponse.json();
@@ -149,7 +152,8 @@ const fetchWeather = async (
       setWeeklyData(getDailyAverages(weatherData?.hourly));
       const {code, temperature} = getWeatherCodeForCurrentTime(weatherData);
       const weatherImage = getWeatherImage(code.toString() as WeatherCode);
-      return {temperature, weatherImage};
+      const unit = weatherData.current_units?.temperature_2m;
+      return {temperature, weatherImage, unit};
     } else {
       throw new Error('Weather data not found');
     }
@@ -204,21 +208,21 @@ export const getWeatherFromLocation = async (
     );
 
     if (latitude && longitude) {
-      const {temperature, weatherImage} = await fetchWeather(
+      const {temperature, weatherImage, unit} = await fetchWeather(
         latitude,
         longitude,
         setWeeklyData,
       );
 
       if (temperature && weatherImage) {
-        return {name, temperature, weatherImage};
+        return {name, temperature, weatherImage, unit};
       }
-      return {name: '', temperature: 0, weatherImage: ''};
+      return {name: '', temperature: 0, weatherImage: '', unit: ''};
     } else {
       throw new Error('Could not fetch coordinates or weather data.');
     }
   } catch (error) {
     console.error('Error:', error);
-    return {name: '', temperature: 0, weatherImage: ''};
+    return {name: '', temperature: 0, weatherImage: '', unit: ''};
   }
 };

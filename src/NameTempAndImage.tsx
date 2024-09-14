@@ -20,7 +20,9 @@ const NameTempAndImage = ({
   return (
     <>
       <Text style={styles.nameContainer}>{locationData.name}</Text>
-      <Text style={styles.tempContainer}>{locationData.temperature}</Text>
+      <Text style={styles.tempContainer}>
+        {locationData.temperature} {locationData.unit}
+      </Text>
       {locationData.weatherImage && (
         <Image
           source={{uri: locationData.weatherImage}}

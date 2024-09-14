@@ -6,6 +6,7 @@ export interface WeatherCard {
   name: string;
   temperature: number;
   weatherImage: string;
+  unit: string;
 }
 
 export interface Location {
